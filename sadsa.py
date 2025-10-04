@@ -3,66 +3,56 @@ from tensorflow.keras.models import load_model
 import numpy as np
 from PIL import Image
 import os
+import glob
 
+# Загрузка модели
+model = load_model('defect_detection_continued.h5')
+print("✅ Модель загружена")
 
-def load_defect_model(model_path='defect_model.h5'):
-    """Загрузка модели один раз при старте программы"""
+# Сканируем директорию на наличие фото
+photo_extensions = ['*.jpg', '*.jpeg', '*.png', '*.bmp', '*.tiff']
+image_files = []
+
+for ext in photo_extensions:
+    image_files.extend(glob.glob(ext))
+
+print(f"📁 Найдено фото: {len(image_files)}")
+
+# Анализ каждого фото
+results = {}
+
+for image_path in image_files:
     try:
-        model = load_model(model_path)
-        print("Модель успешно загружена")
-        return model
-    except Exception as e:
-        print(f"Ошибка загрузки модели: {e}")
-        return None
-
-
-def predict_defects(image_path, model, img_size=(224, 224)):
-    """
-    Основная функция для предсказания дефектов
-
-    Args:
-        image_path (str): путь к изображению
-        model: загруженная модель
-        img_size (tuple): размер изображения для модели
-
-    Returns:
-        np.array: результат предсказания
-    """
-    try:
-        # Загрузка и предобработка изображения
+        # Загрузка и обработка изображения
         img = Image.open(image_path)
-
-        # Конвертация в RGB если нужно
         if img.mode != 'RGB':
             img = img.convert('RGB')
 
-        # Изменение размера
-        img = img.resize(img_size)
-
-        # Конвертация в numpy array и нормализация
+        img = img.resize((224, 224))
         img_array = np.array(img) / 255.0
-
-        # Добавление размерности батча
         img_array = np.expand_dims(img_array, axis=0)
 
         # Предсказание
-        prediction = model.predict(img_array)
+        prediction = model.predict(img_array, verbose=0)
+        defect_prob = float(prediction[0][0])
 
-        return prediction
+        # Определяем результат
+        if defect_prob >= 0.5:
+            status = "defect"
+        else:
+            status = "not_defect"
+
+        results[image_path] = status
+        print(f"🔍 {image_path}: {status} ({defect_prob:.3f})")
 
     except Exception as e:
-        print(f"Ошибка при обработке изображения: {e}")
-        return None
+        print(f"❌ Ошибка с {image_path}: {e}")
+        results[image_path] = "error"
 
+# Выводим итог
+print("\n📊 ИТОГ:")
+for photo, result in results.items():
+    print(f"{photo}: {result}")
 
-# ИНИЦИАЛИЗАЦИЯ (делается один раз при старте)
-model = load_defect_model('defect_detection_continued.h5')
-
-# ИСПОЛЬЗОВАНИЕ В ВАШЕМ КОДЕ
-if model is not None:
-    # Пример вызова функции
-    result = predict_defects('DSC_2760.jpg', model)
-
-    if result is not None:
-        print(f"Результат предсказания: {result}")
-        # Теперь переменная result содержит данные для передачи в другую программу
+# Переменная results содержит все результаты
+# Пример: {'photo1.jpg': 'defect', 'photo2.jpg': 'not_defect'}
