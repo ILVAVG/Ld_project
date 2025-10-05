@@ -12,6 +12,7 @@ import numpy as np
 try:
     from watchdog.observers import Observer
     from watchdog.events import FileSystemEventHandler
+
     WATCHDOG_AVAILABLE = True
     print("Watchdog доступен")
 except ImportError:
@@ -21,6 +22,7 @@ except ImportError:
 # Загрузка модели нейронной сети
 try:
     from tensorflow.keras.models import load_model
+
     TENSORFLOW_AVAILABLE = True
     print("TensorFlow доступен")
 except ImportError:
@@ -308,23 +310,34 @@ class PhotoViewer:
         self.show_waiting_message()
 
     def create_viewing_interface(self):
-        """Создает интерфейс для проверки фотографий с кнопкой в правом нижнем углу"""
+        """Создает интерфейс для проверки фотографий с фиксированным футтером"""
         for widget in self.root.winfo_children():
             widget.destroy()
 
         self.is_waiting_mode = False
 
-        # Фрейм для изображения
+        # Настройка grid для корневого окна :cite[1]:cite[3]
+        self.root.grid_rowconfigure(0, weight=1)  # image_frame расширяется
+        self.root.grid_rowconfigure(1, weight=0)  # info_frame фиксированной высоты
+        self.root.grid_columnconfigure(0, weight=1)  # обе колонки расширяются
+
+        # Фрейм для изображения - занимает все доступное пространство
         self.image_frame = tk.Frame(self.root, bg='black')
-        self.image_frame.pack(fill=tk.BOTH, expand=True)
+        self.image_frame.grid(row=0, column=0, sticky="nsew")
 
         # Метка для изображения
         self.image_label = tk.Label(self.image_frame, bg='black')
         self.image_label.pack(expand=True, fill=tk.BOTH)
 
-        # Фрейм для информации
-        self.info_frame = tk.Frame(self.root, bg='darkgray')
-        self.info_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=10)
+        # Фрейм для информации (футтер) с фиксированной высотой 150 пикселей
+        self.info_frame = tk.Frame(self.root, bg='darkgray', height=150)
+        self.info_frame.grid(row=1, column=0, sticky="ew")
+        self.info_frame.grid_propagate(False)  # Запрещаем изменение размера фрейма
+
+        # Настройка весов для содержимого info_frame
+        self.info_frame.grid_rowconfigure(0, weight=1)
+        self.info_frame.grid_rowconfigure(1, weight=1)
+        self.info_frame.grid_columnconfigure(0, weight=1)
 
         # Метка с информацией о фото
         self.info_label = tk.Label(
@@ -335,7 +348,7 @@ class PhotoViewer:
             fg='white',
             justify=tk.CENTER
         )
-        self.info_label.pack(pady=10)
+        self.info_label.grid(row=0, column=0, pady=5, sticky="nsew")
 
         # Метка для результата анализа
         self.analysis_result = tk.Label(
@@ -346,22 +359,21 @@ class PhotoViewer:
             fg='white',
             justify=tk.CENTER
         )
-        self.analysis_result.pack(pady=10)
+        self.analysis_result.grid(row=1, column=0, pady=5, sticky="nsew")
 
-        # ⭐ ОДНА кнопка "Главное меню" в правом нижнем углу - в два раза больше
+        # Кнопка "Главное меню" в правом нижнем углу
         self.menu_button = tk.Button(
-            self.root,  # Размещаем непосредственно в корневом окне
+            self.root,
             text="Главное меню",
             command=self.back_to_menu,
-            font=("Arial", 20, "bold"),  # Увеличенный шрифт
+            font=("Arial", 20, "bold"),
             bg='lightblue',
             fg='black',
-            width=30,  # В два раза больше по ширине (было 15)
-            height=3,  # В два раза больше по высоте (было 1-2)
+            width=30,
+            height=3,
             borderwidth=3,
             relief="raised"
         )
-        # Размещение в правом нижнем углу :cite[1]:cite[2]
         self.menu_button.place(relx=1.0, rely=1.0, anchor='se', x=-20, y=-20)
 
         self.root.bind("<Configure>", self.on_window_resize)
@@ -463,12 +475,15 @@ class PhotoViewer:
 
             screen_width = self.root.winfo_width()
             screen_height = self.root.winfo_height()
-            img_width, img_height = image.size
 
+            # Учитываем фиксированную высоту футтера (150 пикселей)
             control_height = 150
             max_width = screen_width - 20
             max_height = screen_height - control_height - 20
 
+            img_width, img_height = image.size
+
+            # Масштабируем при необходимости
             if img_width > max_width or img_height > max_height:
                 ratio = min(max_width / img_width, max_height / img_height)
                 new_width = int(img_width * ratio)
@@ -729,11 +744,13 @@ class PhotoViewer:
             image = self.current_photo_data
             screen_width = self.root.winfo_width()
             screen_height = self.root.winfo_height()
-            img_width, img_height = image.size
 
+            # Учитываем фиксированную высоту футтера (150 пикселей)
             control_height = 150
             max_width = screen_width - 20
             max_height = screen_height - control_height - 20
+
+            img_width, img_height = image.size
 
             if img_width > max_width or img_height > max_height:
                 ratio = min(max_width / img_width, max_height / img_height)
@@ -764,7 +781,6 @@ class PhotoViewer:
             self.current_photo_reference = None
             self.is_waiting_mode = False
 
-            # ⭐ Кнопка автоматически уничтожится при очистке окна в create_main_menu
             self.create_main_menu()
             self.load_saved_folder()
 
